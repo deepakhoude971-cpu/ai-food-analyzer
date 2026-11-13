@@ -61,7 +61,7 @@ if uploaded_file is not None:
                     """
 
                     # Auto-Retry with Backup Model if 503 High Demand happens
-                    models_to_try = ['gemini-3.8-flash', 'gemini-3.8-flash-lite', 'gemini-3.8-flash']
+                    models_to_try = ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3.5-flash']
                     response = None
                     last_error = None
 
