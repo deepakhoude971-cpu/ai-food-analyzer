@@ -1,8 +1,8 @@
 import streamlit as st
 from google import genai
-from google.genai import types
 from PIL import Image
 import json
+import time
 import plotly.express as px
 
 # 1. Page Configuration & Title
@@ -17,17 +17,18 @@ st.sidebar.markdown("[Get Free API Key Here](https://google.com)")
 
 # 3. Main UI Components
 uploaded_file = st.file_uploader("Choose a food image...", type=["jpg", "jpeg", "png"])
-portion_size = st.selectbox("Select Estimated Portion Size:", ["Standard Serving", "Small (Half Portion)", "Large (Double Portion)", "100 grams"])
+portion_size = st.selectbox(
+    "Select Estimated Portion Size:",
+    ["Standard Serving", "Small (Half Portion)", "Large (Double Portion)", "100 grams"]
+)
 
 if uploaded_file is not None:
     image = Image.open(uploaded_file)
-    # App desktop par side-by-side achhi dikhe isliye 2 columns banaye hain
-    col1, col2 = st.columns([1, 1])
-    
+    col1, col2 = st.columns()
+
     with col1:
         st.image(image, caption="Uploaded Food Image", use_container_width=True)
-    
-    submit = st.button("📊 Analyze Nutritional Value")
+        submit = st.button("📊 Analyze Nutritional Value")
 
     if submit:
         if not api_key:
@@ -35,14 +36,11 @@ if uploaded_file is not None:
         else:
             with st.spinner("AI is analyzing your food... Please wait..."):
                 try:
-                    # Initialize the Gemini Client
-                    client = genai.Client(api_key=api_key)
-                    
-                    # System prompt to force JSON structure
+                    client = genai.Client(api_key=api_key.strip())
+
                     prompt = f"""
                     You are an expert nutritionist AI. Analyze the provided food image based on the portion size: '{portion_size}'.
                     Identify the food items, estimate the calories, macronutrients, and key micronutrients.
-                    
                     You MUST respond ONLY with a valid JSON object matching this exact structure:
                     {{
                         "food_name": "Name of the dish or food items identified",
@@ -61,52 +59,69 @@ if uploaded_file is not None:
                     }}
                     Do not include any markdown formatting, triple backticks (```), or extra text outside the JSON.
                     """
-                    
-                    # Call Gemini 2.5 Flash Model
-                    response = client.models.generate_content(
-                        model='gemini-3.8-flash',
-                        contents=[image, prompt]
-                    )
-                    
-                    # Clean response string to ensure parseable JSON
+
+                    # Auto-Retry with Backup Model if 503 High Demand happens
+                    models_to_try = ['gemini-3.8-flash', 'gemini-3.8-flash-lite', 'gemini-3.8-flash']
+                    response = None
+                    last_error = None
+
+                    for model_name in models_to_try:
+                        try:
+                            response = client.models.generate_content(
+                                model=model_name,
+                                contents=
+                            )
+                            break
+                        except Exception as err:
+                            last_error = err
+                            if "503" in str(err) or "UNAVAILABLE" in str(err):
+                                time.sleep(2)
+                                continue
+                            else:
+                                raise err
+
+                    if response is None:
+                        raise last_error
+
+                    # Clean response string
                     raw_text = response.text.strip()
                     if raw_text.startswith("```json"):
                         raw_text = raw_text.replace("```json", "").replace("```", "").strip()
                     elif raw_text.startswith("```"):
                         raw_text = raw_text.replace("```", "").strip()
-                        
+
                     data = json.loads(raw_text)
-                    
+
                     # Display Results in Column 2
                     with col2:
                         st.success(f"Food Identified: **{data['food_name']}**")
-                        
-                        # Display Key Metrics
+
                         m1, m2, m3, m4 = st.columns(4)
                         m1.metric("Calories", f"{data['calories']} kcal")
                         m2.metric("Protein", f"{data['protein_g']}g")
                         m3.metric("Carbs", f"{data['carbs_g']}g")
                         m4.metric("Fat", f"{data['fat_g']}g")
-                        
-                        # Create Macros Pie Chart using Plotly
-                        st.subheader("🥪 MacronutrienZK;LJH sq`1t Distribution")
+
+                        st.subheader("🥪 Macronutrient Distribution")
                         macro_data = {
                             "Nutrient": ["Protein", "Carbohydrates", "Fats"],
                             "Grams": [data['protein_g'], data['carbs_g'], data['fat_g']]
                         }
-                        fig = px.pie(macro_data, values="Grams", names="Nutrient", hole=0.4,
-                                     color_discrete_sequence=px.colors.qualitative.Pastel)
+                        fig = px.pie(
+                            macro_data,
+                            values="Grams",
+                            names="Nutrient",
+                            hole=0.4,
+                            color_discrete_sequence=px.colors.qualitative.Pastel
+                        )
                         st.plotly_chart(fig, use_container_width=True)
-                        
-                        # Create Micronutrient Table/Bar Chart
+
                         st.subheader("🔬 Micronutrient Analysis")
-                        micros = data['micronutrients']
-                        st.table(micros)
-                        
-                        # Display Health Insights
+                        st.table(data['micronutrients'])
+
                         st.info(f"💡 **AI Health Insight:** {data['health_insight']}")
-                        
+
                 except json.JSONDecodeError:
-                    st.error("Failed to parse AI response. The model output was not in correct format. Please try clicking the button again.")
+                    st.error("Failed to parse AI response. Please click Analyze again.")
                 except Exception as e:
                     st.error(f"An error occurred: {str(e)}")
