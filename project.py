@@ -69,7 +69,7 @@ if uploaded_file is not None:
                         try:
                             response = client.models.generate_content(
                                 model=model_name,
-                                contents=
+                                contents=(image, prompt)
                             )
                             break
                         except Exception as err:
