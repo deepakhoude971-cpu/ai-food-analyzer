@@ -56,19 +56,23 @@ if uploaded_file:
                 """
 
                 response = None
-                for model_name in ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']:
+                last_error = None
+                for model_name in ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash']:
                     try:
                         response = client.models.generate_content(
                             model=model_name,
-                            contents=(image, prompt),
+                            contents=,
                             config=types.GenerateContentConfig(temperature=0.4)
                         )
                         break
                     except Exception as err:
-                        if any(x in str(err) for x in ["503", "UNAVAILABLE", "404"]):
-                            time.sleep(2)
-                            continue
-                        raise err
+                        last_error = err
+                        time.sleep(1)
+                        continue
+
+                if response is None:
+                    st.error(f"Model Error: {str(last_error)}")
+                    st.stop()
 
                 raw_text = response.text.replace("```json", "").replace("```", "").strip()
                 data = json.loads(raw_text)
