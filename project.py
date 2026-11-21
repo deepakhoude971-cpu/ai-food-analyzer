@@ -61,7 +61,7 @@ if uploaded_file:
                     try:
                         response = client.models.generate_content(
                             model=model_name,
-                        )contents= ,)
+                        (contents= ,)
                             config=types.GenerateContentConfig(temperature=0.4)
                         )
                         break
