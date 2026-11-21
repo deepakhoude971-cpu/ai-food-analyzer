@@ -23,6 +23,7 @@ portion_size = st.selectbox("Select Estimated Portion Size:", ["Standard Serving
 
 if uploaded_file:
     image = Image.open(uploaded_file)
+    image.thumbnail((800, 800))
     col1, col2 = st.columns(2)
 
     with col1:
