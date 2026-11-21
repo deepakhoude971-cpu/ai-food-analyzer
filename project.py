@@ -23,7 +23,7 @@ portion_size = st.selectbox("Select Estimated Portion Size:", ["Standard Serving
 
 if uploaded_file:
     image = Image.open(uploaded_file)
-    image.thumbnail((800, 800))
+    image.thumbnail((450, 450))
     col1, col2 = st.columns(2)
 
     with col1:
@@ -58,7 +58,7 @@ if uploaded_file:
 
                 response = None
                 last_error = None
-                for model_name in ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3.5-flash']:
+                for model_name in ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.5-flash']:
                     try:
                         response = client.models.generate_content(
                             model=model_name,
