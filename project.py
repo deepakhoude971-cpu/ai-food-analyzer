@@ -7,6 +7,13 @@ import time
 import plotly.express as px
 
 st.set_page_config(page_title="AI Food & Micronutrient Analyzer", page_icon="🥗", layout="wide")
+st.markdown("""
+<style>
+    [data-testid="stMetric"] { background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 15px; border-radius: 12px; }
+    .stButton>button { background: linear-gradient(90deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 10px; font-weight: bold; }
+</style>
+""", unsafe_allow_html=True)
+
 st.title("🥗 AI Food Recognition & Micronutrient Analyzer")
 st.write("Upload a food image to get instant calorie estimation, macro breakdown, and micronutrient analysis.")
 
