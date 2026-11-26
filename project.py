@@ -96,7 +96,7 @@ if uploaded_file:
                 {{"is_food": true, "food_name": "<Name>", "items": [{{"name": "<English ingredient>", "grams": <num>, "fb": [<cal>, <pro>, <carb>, <fat>, <iron_mg>, <calc_mg>, <vitc_mg>, <pot_mg>, <sod_mg>]}}], "health_insight": "<2-sentence health tip>"}}"""
                 response = client.models.generate_content(
                     model="gemini-3.5-flash-lite",
-                    contents=prompt,
+                    contents=,
                     config=types.GenerateContentConfig(
                         temperature=0.1, response_mime_type="application/json"
                     ),
