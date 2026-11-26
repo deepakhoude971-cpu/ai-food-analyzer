@@ -139,20 +139,19 @@ if uploaded_file:
                             t = [t[i] + float(vals[i]) for i in range(9)]
 
                         st.success(f"Food Identified: **{data['food_name']}**")
-                        m1, m2, m3, m4 = st.columns(4)
-                        m1.metric("Calories", f"{round(t)} kcal")
-                        m2.metric("Protein", f"{round(t, 1)}g")
-                        m3.metric("Carbs", f"{round(t, 1)}g")
-                        m4.metric("Fat", f"{round(t, 1)}g")
+                                                m1.metric("Calories", f"{round(t[0])} kcal")
+                        m2.metric("Protein", f"{round(t[1], 1)}g")
+                        m3.metric("Carbs", f"{round(t[2], 1)}g")
+                        m4.metric("Fat", f"{round(t[3], 1)}g")
 
                         st.subheader("🥪 Macronutrient Distribution")
                         fig = px.pie(
                             {
                                 "Nutrient": ["Protein", "Carbs", "Fats"],
                                 "Grams": [
-                                    round(t, 1),
-                                    round(t, 1),
-                                    round(t, 1),
+                                    round(t[1], 1),
+                                    round(t[2], 1),
+                                    round(t[3], 1),
                                 ],
                             },
                             values="Grams",
@@ -164,12 +163,13 @@ if uploaded_file:
 
                         st.subheader("🔬 Micronutrient Analysis")
                         st.table({
-                            "Iron (mg)": round(t, 2),
-                            "Calcium (mg)": round(t, 1),
-                            "Vitamin C (mg)": round(t, 1),
-                            "Potassium (mg)": round(t, 1),
-                            "Sodium (mg)": round(t, 1),
+                            "Iron (mg)": round(t[4], 2),
+                            "Calcium (mg)": round(t[5], 1),
+                            "Vitamin C (mg)": round(t[6], 1),
+                            "Potassium (mg)": round(t[7], 1),
+                            "Sodium (mg)": round(t[8], 1),
                         })
+
                         st.info(
                             f"💡 **AI Health Insight:** {data['health_insight']}"
                         )
