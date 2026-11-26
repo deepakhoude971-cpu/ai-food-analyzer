@@ -33,7 +33,6 @@ if "GEMINI_API_KEY" not in st.secrets:
 client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"].strip())
 USDA_API_KEY = st.secrets.get("USDA_API_KEY", "DEMO_KEY")
 
-
 def get_usda_data(ingredient, grams):
     try:
         res = requests.get(
@@ -49,7 +48,7 @@ def get_usda_data(ingredient, grams):
         if res.get("foods"):
             n = {
                 x["nutrientName"]: x["value"]
-                for x in res["foods"]["foodNutrients"]
+                for x in res["foods"][0]["foodNutrients"]
             }
             f = grams / 100.0
             return [
@@ -65,6 +64,7 @@ def get_usda_data(ingredient, grams):
             ]
     except Exception:
         return None
+
 
 
 uploaded_file = st.file_uploader(
@@ -137,13 +137,14 @@ if uploaded_file:
                                 item["name"], float(item["grams"])
                             ) or item.get("fb", [0.0] * 9)
                             t = [t[i] + float(vals[i]) for i in range(9)]
-
+                            
                         st.success(f"Food Identified: **{data['food_name']}**")
                         m1, m2, m3, m4 = st.columns(4)
-                        m1.metric("Calories", f"{round(t)} kcal")
-                        m2.metric("Protein", f"{round(t, 1)}g")
-                        m3.metric("Carbs", f"{round(t, 1)}g")
-                        m4.metric("Fat", f"{round(t, 1)}g")
+                        m1.metric("Calories", f"{round(t[0])} kcal")
+                        m2.metric("Protein", f"{round(t[1], 1)}g")
+                        m3.metric("Carbs", f"{round(t[2], 1)}g")
+                        m4.metric("Fat", f"{round(t[3], 1)}g")
+
                         
                         st.subheader("🥪 Macronutrient Distribution")
                         fig = px.pie(
