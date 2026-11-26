@@ -106,7 +106,7 @@ if uploaded_file:
                     try:
                         response = client.models.generate_content(
                             model=model_name,
-                            contents=,
+                            contents=list((image, prompt)),
                             config=types.GenerateContentConfig(
                                 temperature=0.1,
                                 response_mime_type="application/json",
