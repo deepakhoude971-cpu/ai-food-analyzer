@@ -33,6 +33,7 @@ if "GEMINI_API_KEY" not in st.secrets:
 client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"].strip())
 USDA_API_KEY = st.secrets.get("USDA_API_KEY", "DEMO_KEY")
 
+
 def get_usda_data(ingredient, grams):
     try:
         res = requests.get(
@@ -66,7 +67,6 @@ def get_usda_data(ingredient, grams):
         return None
 
 
-
 uploaded_file = st.file_uploader(
     "Choose a food image...", type=["jpg", "jpeg", "png"]
 )
@@ -92,16 +92,16 @@ if uploaded_file:
         with st.spinner("Analyzing food & calculating nutrition..."):
             try:
                 prompt = f"""Check if image has food or drink. If NO, return {{"is_food": false}}.
-                If YES, identify any food, meal, drink, or shake, break it into standard English ingredients/liquids (including oil/ghee/sugar/milk) scaled for '{portion_size}', and provide fallback values.
+                If YES, look VERY closely at textures and colors (e.g., distinguish peanut butter/nut butter from chocolate spread) and list EVERY visible item, fruit, seed, spread, liquid, and base food in food_name. Break it into standard English ingredients/liquids (including oil/ghee/sugar/milk) scaled for '{portion_size}', and provide fallback values.
                 Return ONLY valid JSON:
-                {{"is_food": true, "food_name": "<Name>", "items": [{{"name": "<English ingredient>", "grams": <num>, "fb": [<cal>, <pro>, <carb>, <fat>, <iron_mg>, <calc_mg>, <vitc_mg>, <pot_mg>, <sod_mg>]}}], "health_insight": "<2-sentence health tip>"}}"""
+                {{"is_food": true, "food_name": "<Exact dish + every visible fruit, spread & topping>", "items": [{{"name": "<English ingredient>", "grams": <num>, "fb": [<cal>, <pro>, <carb>, <fat>, <iron_mg>, <calc_mg>, <vitc_mg>, <pot_mg>, <sod_mg>]}}], "health_insight": "<2-sentence health tip>"}}"""
 
                 response = None
                 last_error = None
                 for model_name in [
-                    "gemini-3.5-flash-lite",
                     "gemini-3.8-flash",
                     "gemini-3.5-flash",
+                    "gemini-3.5-flash-lite",
                 ]:
                     try:
                         response = client.models.generate_content(
@@ -137,15 +137,19 @@ if uploaded_file:
                                 item["name"], float(item["grams"])
                             ) or item.get("fb", [0.0] * 9)
                             t = [t[i] + float(vals[i]) for i in range(9)]
-                            
+
                         st.success(f"Food Identified: **{data['food_name']}**")
+                        st.markdown(
+                            "**🥗 Detected Items:**"
+                            f" {', '.join(x.get('name', '').title() for x in data.get('items', []))}"
+                        )
+
                         m1, m2, m3, m4 = st.columns(4)
                         m1.metric("Calories (kcal)", f"{round(next(iter(t)))}")
                         m2.metric("Protein", f"{round(t[1], 1)}g")
                         m3.metric("Carbs", f"{round(t[2], 1)}g")
                         m4.metric("Fat", f"{round(t[3], 1)}g")
 
-                        
                         st.subheader("🥪 Macronutrient Distribution")
                         fig = px.pie(
                             {
