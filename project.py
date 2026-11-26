@@ -140,7 +140,7 @@ if uploaded_file:
                             
                         st.success(f"Food Identified: **{data['food_name']}**")
                         m1, m2, m3, m4 = st.columns(4)
-                        m1.metric("Calories (kcal)", f"{round(t)}")
+                        m1.metric("Calories (kcal)", f"{round(next(iter(t)))}")
                         m2.metric("Protein", f"{round(t[1], 1)}g")
                         m3.metric("Carbs", f"{round(t[2], 1)}g")
                         m4.metric("Fat", f"{round(t[3], 1)}g")
