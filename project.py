@@ -1,3 +1,4 @@
+import datetime
 import json
 import time
 from google import genai
@@ -24,6 +25,9 @@ st.write(
     " and micronutrient analysis."
 )
 
+if "meal_history" not in st.session_state:
+    st.session_state.meal_history = []
+
 if "GEMINI_API_KEY" not in st.secrets:
     st.error(
         "API Key missing! Add GEMINI_API_KEY in Streamlit Settings > Secrets."
@@ -46,23 +50,25 @@ def get_usda_data(ingredient, grams):
             },
             timeout=5,
         ).json()
-        if res.get("foods"):
+        foods = res.get("foods")
+        if foods:
+            first_food = next(iter(foods))
             n = {
                 x["nutrientName"]: x["value"]
-                for x in res["foods"][0]["foodNutrients"]
+                for x in first_food["foodNutrients"]
             }
             f = grams / 100.0
-            return [
-                n.get("Energy", 0) * f,
-                n.get("Protein", 0) * f,
-                n.get("Carbohydrate, by difference", 0) * f,
-                n.get("Total lipid (fat)", 0) * f,
-                n.get("Iron, Fe", 0) * f,
-                n.get("Calcium, Ca", 0) * f,
-                n.get("Vitamin C, total ascorbic acid", 0) * f,
-                n.get("Potassium, K", 0) * f,
-                n.get("Sodium, Na", 0) * f,
-            ]
+            return {
+                "cal": n.get("Energy", 0) * f,
+                "pro": n.get("Protein", 0) * f,
+                "carb": n.get("Carbohydrate, by difference", 0) * f,
+                "fat": n.get("Total lipid (fat)", 0) * f,
+                "iron": n.get("Iron, Fe", 0) * f,
+                "calc": n.get("Calcium, Ca", 0) * f,
+                "vitc": n.get("Vitamin C, total ascorbic acid", 0) * f,
+                "pot": n.get("Potassium, K", 0) * f,
+                "sod": n.get("Sodium, Na", 0) * f,
+            }
     except Exception:
         return None
 
@@ -86,15 +92,19 @@ if uploaded_file:
     col1, col2 = st.columns(2)
     with col1:
         st.image(image, caption="Uploaded Image", use_container_width=True)
+        extra_notes = st.text_input(
+            "Optional: Type ingredients/details (e.g., 'peanut butter, 1 tsp"
+            " ghee, less sugar'):"
+        )
         submit = st.button("📊 Analyze Nutritional Value", type="primary")
 
     if submit:
         with st.spinner("Analyzing food & calculating nutrition..."):
             try:
                 prompt = f"""Check if image has food or drink. If NO, return {{"is_food": false}}.
-                If YES, look VERY closely at textures and colors (e.g., distinguish peanut butter/nut butter from chocolate spread) and list EVERY visible item, fruit, seed, spread, liquid, and base food in food_name. Break it into standard English ingredients/liquids (including oil/ghee/sugar/milk) scaled for '{portion_size}', and provide fallback values.
+                If YES, use user's optional notes: "{extra_notes}" as ground truth if provided, and look VERY closely at textures/colors to list EVERY visible item, fruit, seed, spread, liquid, and base food in food_name. Break it into standard English ingredients/liquids scaled for '{portion_size}', and provide fallback values.
                 Return ONLY valid JSON:
-                {{"is_food": true, "food_name": "<Exact dish + every visible fruit, spread & topping>", "items": [{{"name": "<English ingredient>", "grams": <num>, "fb": [<cal>, <pro>, <carb>, <fat>, <iron_mg>, <calc_mg>, <vitc_mg>, <pot_mg>, <sod_mg>]}}], "health_insight": "<2-sentence health tip>"}}"""
+                {{"is_food": true, "food_name": "<Exact dish + every visible fruit, spread & topping>", "items": [{{"name": "<English ingredient>", "grams": <num>, "fb": {{"cal": <num>, "pro": <num>, "carb": <num>, "fat": <num>, "iron": <num>, "calc": <num>, "vitc": <num>, "pot": <num>, "sod": <num>}}}}], "health_insight": "<2-sentence health tip>"}}"""
 
                 response = None
                 last_error = None
@@ -131,12 +141,40 @@ if uploaded_file:
                             " of a meal, fruit, or drink."
                         )
                     else:
-                        t = [0.0] * 9
+                        t = {
+                            "cal": 0.0,
+                            "pro": 0.0,
+                            "carb": 0.0,
+                            "fat": 0.0,
+                            "iron": 0.0,
+                            "calc": 0.0,
+                            "vitc": 0.0,
+                            "pot": 0.0,
+                            "sod": 0.0,
+                        }
                         for item in data.get("items", []):
                             vals = get_usda_data(
                                 item["name"], float(item["grams"])
-                            ) or item.get("fb", [0.0] * 9)
-                            t = [t[i] + float(vals[i]) for i in range(9)]
+                            ) or item.get("fb", t)
+                            for k in t:
+                                t[k] = t[k] + float(vals.get(k, 0))
+
+                        cal_val = round(t["cal"])
+                        pro_val = round(t["pro"], 1)
+                        carb_val = round(t["carb"], 1)
+                        fat_val = round(t["fat"], 1)
+
+                        st.session_state.meal_history.append({
+                            "Time": datetime.datetime.now().strftime(
+                                "%I:%M %p"
+                            ),
+                            "Food / Drink": data["food_name"],
+                            "Portion": portion_size,
+                            "Calories": cal_val,
+                            "Protein (g)": pro_val,
+                            "Carbs (g)": carb_val,
+                            "Fat (g)": fat_val,
+                        })
 
                         st.success(f"Food Identified: **{data['food_name']}**")
                         st.markdown(
@@ -145,20 +183,16 @@ if uploaded_file:
                         )
 
                         m1, m2, m3, m4 = st.columns(4)
-                        m1.metric("Calories (kcal)", f"{round(next(iter(t)))}")
-                        m2.metric("Protein", f"{round(t[1], 1)}g")
-                        m3.metric("Carbs", f"{round(t[2], 1)}g")
-                        m4.metric("Fat", f"{round(t[3], 1)}g")
+                        m1.metric("Calories (kcal)", f"{cal_val}")
+                        m2.metric("Protein", f"{pro_val}g")
+                        m3.metric("Carbs", f"{carb_val}g")
+                        m4.metric("Fat", f"{fat_val}g")
 
                         st.subheader("🥪 Macronutrient Distribution")
                         fig = px.pie(
                             {
                                 "Nutrient": ["Protein", "Carbs", "Fats"],
-                                "Grams": [
-                                    round(t[1], 1),
-                                    round(t[2], 1),
-                                    round(t[3], 1),
-                                ],
+                                "Grams": [pro_val, carb_val, fat_val],
                             },
                             values="Grams",
                             names="Nutrient",
@@ -169,11 +203,11 @@ if uploaded_file:
 
                         st.subheader("🔬 Micronutrient Analysis")
                         st.table({
-                            "Iron (mg)": round(t[4], 2),
-                            "Calcium (mg)": round(t[5], 1),
-                            "Vitamin C (mg)": round(t[6], 1),
-                            "Potassium (mg)": round(t[7], 1),
-                            "Sodium (mg)": round(t[8], 1),
+                            "Iron (mg)": round(t["iron"], 2),
+                            "Calcium (mg)": round(t["calc"], 1),
+                            "Vitamin C (mg)": round(t["vitc"], 1),
+                            "Potassium (mg)": round(t["pot"], 1),
+                            "Sodium (mg)": round(t["sod"], 1),
                         })
 
                         st.info(
@@ -181,3 +215,28 @@ if uploaded_file:
                         )
             except Exception as e:
                 st.error(f"Error: {str(e)}")
+
+if st.session_state.meal_history:
+    st.divider()
+    st.subheader("📋 Session Meal History")
+    h1, h2, h3, h4 = st.columns(4)
+    h1.metric(
+        "Total Calories",
+        f"{sum(x['Calories'] for x in st.session_state.meal_history)} kcal",
+    )
+    h2.metric(
+        "Total Protein",
+        f"{round(sum(x['Protein (g)'] for x in st.session_state.meal_history), 1)}g",
+    )
+    h3.metric(
+        "Total Carbs",
+        f"{round(sum(x['Carbs (g)'] for x in st.session_state.meal_history), 1)}g",
+    )
+    h4.metric(
+        "Total Fat",
+        f"{round(sum(x['Fat (g)'] for x in st.session_state.meal_history), 1)}g",
+    )
+    st.table(st.session_state.meal_history)
+    if st.button("🗑️ Clear History"):
+        st.session_state.meal_history = []
+        st.rerun()
