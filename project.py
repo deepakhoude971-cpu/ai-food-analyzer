@@ -1,4 +1,5 @@
 import json
+import time
 from google import genai
 from google.genai import types
 from PIL import Image
@@ -94,13 +95,33 @@ if uploaded_file:
                 If YES, identify any food, meal, drink, or shake, break it into standard English ingredients/liquids (including oil/ghee/sugar/milk) scaled for '{portion_size}', and provide fallback values.
                 Return ONLY valid JSON:
                 {{"is_food": true, "food_name": "<Name>", "items": [{{"name": "<English ingredient>", "grams": <num>, "fb": [<cal>, <pro>, <carb>, <fat>, <iron_mg>, <calc_mg>, <vitc_mg>, <pot_mg>, <sod_mg>]}}], "health_insight": "<2-sentence health tip>"}}"""
-                response = client.models.generate_content(
-                    model="gemini-3.5-flash-lite",
-                    contents=,
-                    config=types.GenerateContentConfig(
-                        temperature=0.1, response_mime_type="application/json"
-                    ),
-                )
+
+                response = None
+                last_error = None
+                for model_name in [
+                    "gemini-3.5-flash-lite",
+                    "gemini-3.8-flash",
+                    "gemini-3.5-flash",
+                ]:
+                    try:
+                        response = client.models.generate_content(
+                            model=model_name,
+                            contents=,
+                            config=types.GenerateContentConfig(
+                                temperature=0.1,
+                                response_mime_type="application/json",
+                            ),
+                        )
+                        break
+                    except Exception as err:
+                        last_error = err
+                        time.sleep(1)
+                        continue
+
+                if response is None:
+                    st.error(f"Model Error: {str(last_error)}")
+                    st.stop()
+
                 data = json.loads(response.text)
 
                 with col2:
@@ -114,24 +135,24 @@ if uploaded_file:
                         for item in data.get("items", []):
                             vals = get_usda_data(
                                 item["name"], float(item["grams"])
-                            ) or item.get("fb", [0] * 9)
+                            ) or item.get("fb", [0.0] * 9)
                             t = [t[i] + float(vals[i]) for i in range(9)]
 
                         st.success(f"Food Identified: **{data['food_name']}**")
                         m1, m2, m3, m4 = st.columns(4)
-                        m1.metric("Calories", f"{round(t[0])} kcal")
-                        m2.metric("Protein", f"{round(t[1], 1)}g")
-                        m3.metric("Carbs", f"{round(t[2], 1)}g")
-                        m4.metric("Fat", f"{round(t[3], 1)}g")
+                        m1.metric("Calories", f"{round(t)} kcal")
+                        m2.metric("Protein", f"{round(t, 1)}g")
+                        m3.metric("Carbs", f"{round(t, 1)}g")
+                        m4.metric("Fat", f"{round(t, 1)}g")
 
                         st.subheader("🥪 Macronutrient Distribution")
                         fig = px.pie(
                             {
                                 "Nutrient": ["Protein", "Carbs", "Fats"],
                                 "Grams": [
-                                    round(t[1], 1),
-                                    round(t[2], 1),
-                                    round(t[3], 1),
+                                    round(t, 1),
+                                    round(t, 1),
+                                    round(t, 1),
                                 ],
                             },
                             values="Grams",
@@ -143,11 +164,11 @@ if uploaded_file:
 
                         st.subheader("🔬 Micronutrient Analysis")
                         st.table({
-                            "Iron (mg)": round(t[4], 2),
-                            "Calcium (mg)": round(t[5], 1),
-                            "Vitamin C (mg)": round(t[6], 1),
-                            "Potassium (mg)": round(t[7], 1),
-                            "Sodium (mg)": round(t[8], 1),
+                            "Iron (mg)": round(t, 2),
+                            "Calcium (mg)": round(t, 1),
+                            "Vitamin C (mg)": round(t, 1),
+                            "Potassium (mg)": round(t, 1),
+                            "Sodium (mg)": round(t, 1),
                         })
                         st.info(
                             f"💡 **AI Health Insight:** {data['health_insight']}"
