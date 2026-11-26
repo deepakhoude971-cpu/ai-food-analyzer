@@ -139,11 +139,12 @@ if uploaded_file:
                             t = [t[i] + float(vals[i]) for i in range(9)]
 
                         st.success(f"Food Identified: **{data['food_name']}**")
-                        m1.metric("Calories", f"{round(t[0])} kcal")
-                        m2.metric("Protein", f"{round(t[1], 1)}g")
-                        m3.metric("Carbs", f"{round(t[2], 1)}g")
-                        m4.metric("Fat", f"{round(t[3], 1)}g")
-
+                        m1, m2, m3, m4 = st.columns(4)
+                        m1.metric("Calories", f"{round(t)} kcal")
+                        m2.metric("Protein", f"{round(t, 1)}g")
+                        m3.metric("Carbs", f"{round(t, 1)}g")
+                        m4.metric("Fat", f"{round(t, 1)}g")
+                        
                         st.subheader("🥪 Macronutrient Distribution")
                         fig = px.pie(
                             {
